@@ -9,4 +9,4 @@
 
 ## Link do PR
 
-- preencher apos abertura do PR
+- https://github.com/DataSocialRJ2026/.github/pull/1

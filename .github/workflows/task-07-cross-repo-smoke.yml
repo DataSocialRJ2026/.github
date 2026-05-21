@@ -1,0 +1,76 @@
+name: TASK-07 Cross-Repo Smoke Suite
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: quick or full
+        required: false
+        default: quick
+      backend_ref:
+        description: backend git ref
+        required: false
+        default: main
+      frontend_ref:
+        description: frontend git ref
+        required: false
+        default: main
+      collector_ref:
+        description: collector git ref
+        required: false
+        default: main
+      gitops_ref:
+        description: gitops git ref
+        required: false
+        default: main
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: backend
+            repository: DataSocialRJ2026/eleicoesrio2026.backend
+            script: bash scripts/smoke/smoke.sh
+            artifact: smoke-backend-log
+          - name: frontend
+            repository: DataSocialRJ2026/eleicoesrio2026.frontend
+            script: bash scripts/smoke/smoke.sh
+            artifact: smoke-frontend-log
+          - name: collector
+            repository: DataSocialRJ2026/eleicoesrio2026.brandwatch.collector
+            script: bash scripts/smoke/smoke.sh
+            artifact: smoke-collector-log
+          - name: gitops
+            repository: DataSocialRJ2026/eleicoesrio2026.gitops
+            script: bash scripts/smoke/smoke.sh
+            artifact: smoke-gitops-log
+    steps:
+      - name: Checkout target repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ matrix.repository }}
+          ref: ${{ matrix.name == 'backend' && (github.event.inputs.backend_ref || 'main') || matrix.name == 'frontend' && (github.event.inputs.frontend_ref || 'main') || matrix.name == 'collector' && (github.event.inputs.collector_ref || 'main') || (github.event.inputs.gitops_ref || 'main') }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          path: repo
+
+      - name: Run cross-repo smoke
+        working-directory: repo
+        run: ${{ matrix.script }}
+
+      - name: Upload log artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: repo/artifacts/*.log
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## ${{ matrix.name }} smoke" >> $GITHUB_STEP_SUMMARY
+          echo "- repository: ${{ matrix.repository }}" >> $GITHUB_STEP_SUMMARY
+          echo "- mode: ${{ github.event.inputs.mode || 'quick' }}" >> $GITHUB_STEP_SUMMARY
